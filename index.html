@@ -27,7 +27,10 @@
 <section class="wrap"><div class="cta"><div><div class="eyebrow" style="color:#e0b77b">Reserva directa</div><h2>¿Listo para desconectar?</h2></div><a class="btn" style="background:#e0b77b;color:#2f3b31" href="https://wa.me/56987967054?text=Hola%2C%20quiero%20reservar%20%22onde%22%20la%20yoly.">Reservar</a></div></section>
 <footer>© 2026 "onde" la yoly · WhatsApp +56 9 8796 7054</footer>
 
-<script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+const SUPABASE_URL="https://qdfvhsfriuwrzuwcriae.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_a7rmVVP4_O_RWgNOP_LEWw_Mdy_NywU";
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 const DEFAULTS={
  prices:{weekNo:45000,weekYes:70000,weekendNo:55000,weekendYes:85000,holidayNo:55000,holidayYes:85000},
  bookings:[],reviews:[],gallery:[],content:{name:'"onde" la yoly',phone:'+56 9 8796 7054',desc:''}
@@ -98,11 +101,13 @@ function submitReview(){
  document.getElementById('rname').value='';document.getElementById('rtext').value='';stars=0;starUI();
  document.getElementById('reviewMsg').textContent='Gracias. Tu reseña quedó pendiente de aprobación.';reviews();
 }
-function gallery(){
- const g=document.getElementById('gallery'),imgs=getData().gallery;
- if(!imgs.length){g.innerHTML='<div class="empty">Las fotos de la cabaña se mostrarán aquí cuando las agregues desde el panel de administración.</div>';return;}
- g.innerHTML=imgs.map((src,i)=>`<img src="${src}" alt="Foto de la cabaña ${i+1}">`).join('');
+async function gallery(){
+ const g=document.getElementById('gallery');
+ const {data,error}=await supabaseClient.storage.from('gallery').list('gallery',{limit:100,sortBy:{column:'created_at',order:'desc'}});
+ if(error || !data || !data.length){g.innerHTML='<div class="empty">Las fotos de la cabaña se mostrarán aquí cuando las agregues desde el panel de administración.</div>';return;}
+ g.innerHTML=data.filter(x=>x.name).map(x=>{const url=supabaseClient.storage.from('gallery').getPublicUrl('gallery/'+x.name).data.publicUrl;return `<img src="${url}" alt="Foto de \"onde\" la yoly" loading="lazy">`;}).join('');
 }
+
 prices();calendar();starUI();reviews();gallery();
 window.addEventListener('storage',()=>{prices();calendar();reviews();gallery();});
 </script></body></html>

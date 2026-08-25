@@ -8,7 +8,7 @@
 <section id="reservas" class="panel"><div class="grid2"><div class="card"><h2>Nueva reserva</h2><label>Nombre</label><input id="bname"><label>Entrada</label><input id="bstart" type="date"><label>Salida</label><input id="bend" type="date"><label>Personas</label><input id="bpeople" type="number" min="1" max="4" value="2"><label>Tinaja</label><select id="btype"><option value="no">Sin tinaja</option><option value="yes">Con tinaja</option></select><label>Valor cobrado</label><select id="amount" onchange="other()"><option value="45000">$45.000</option><option value="55000">$55.000</option><option value="70000">$70.000</option><option value="85000">$85.000</option><option value="other">Otro monto</option></select><input id="otherAmount" type="number" placeholder="Ingresa el monto" style="display:none"><button class="btn" onclick="addBooking()">Guardar reserva</button></div><div class="card"><h2>Bloquear fechas</h2><label>Desde</label><input id="bs" type="date"><label>Hasta</label><input id="be" type="date"><button class="btn bad" onclick="block()">Bloquear</button></div></div><div class="card" style="margin-top:16px"><h2>Historial</h2><div id="bookings"></div></div></section>
 <section id="precios" class="panel"><div class="card"><h2>Tarifas</h2><div class="grid2"><div><label>Lunes-jueves sin tinaja</label><input id="weekNo"><label>Viernes-domingo sin tinaja</label><input id="weekendNo"><label>Feriados sin tinaja</label><input id="holidayNo"></div><div><label>Lunes-jueves con tinaja</label><input id="weekYes"><label>Viernes-domingo con tinaja</label><input id="weekendYes"><label>Feriados con tinaja</label><input id="holidayYes"></div></div><button class="btn" onclick="savePrices()">Guardar</button></div></section>
 <section id="resenas" class="panel"><div class="card"><h2>Moderación de reseñas</h2><div id="reviewList"></div></div></section>
-<section id="contenido" class="panel"><div class="card"><h2>Contenido editable</h2><label>Nombre</label><input id="siteName" value='"onde" la yoly'><label>WhatsApp</label><input id="phone" value="+56 9 8796 7054"><label>Descripción</label><textarea id="desc"></textarea><button class="btn" onclick="saveContent()">Guardar</button></div><div class="card" style="margin-top:16px"><h2>Fotos de la cabaña</h2><p class="muted">Agrega fotos para que aparezcan en la página pública. Se guardan en este navegador en esta versión.</p>
+<section id="contenido" class="panel"><div class="card"><h2>Contenido editable</h2><label>Nombre</label><input id="siteName" value='"onde" la yoly'><label>WhatsApp</label><input id="phone" value="+56 9 8796 7054"><label>Descripción</label><textarea id="desc"></textarea><button class="btn" onclick="saveContent()">Guardar</button></div><div class="card" style="margin-top:16px"><h2>Fotos de la cabaña</h2><p class="muted">Las fotos se guardan en Supabase Storage para que se vean en todos los dispositivos.</p><p id="photoStatus" class="small muted"></p>
 <input id="photos" type="file" accept="image/*" multiple onchange="addPhotos(event)">
 <div id="photoList"></div></div></section>
 <section id="usuarios" class="panel"><div class="card"><h2>Administradores</h2><p class="muted">Preparado para agregar administradores en la versión con autenticación real.</p><button class="btn secondary" onclick="alert('Esta función se conectará en la versión segura con base de datos.')">+ Agregar administrador</button></div></section>
@@ -36,7 +36,7 @@ async function login(){
  if(authError){error.textContent='Correo o contraseña incorrectos.';return;}
  if(data.session) show();
 }
-function show(){loginEl.style.display='none';app.style.display='block';render();}
+async function show(){loginEl.style.display='none';app.style.display='block';await loadGalleryFromStorage();render();}
 async function logout(){await supabaseClient.auth.signOut();location.reload()}
 supabaseClient.auth.onAuthStateChange((_event,session)=>{if(session)show();});
 const loginEl=document.getElementById('login');
@@ -57,14 +57,30 @@ function remove(id){if(!confirm('¿Eliminar este registro?'))return;const d=data
 function savePrices(){const d=data();Object.keys(d.prices).forEach(k=>d.prices[k]=Math.max(0,+document.getElementById(k).value||0));save(d);alert('Precios guardados.')}
 function mod(id,s){const d=data(),r=d.reviews.find(x=>x.id===id);if(r)r.status=s;save(d)}
 function saveContent(){const d=data();d.content={name:document.getElementById('siteName').value,phone:document.getElementById('phone').value,desc:document.getElementById('desc').value};save(d);alert('Contenido guardado.')}
-function addPhotos(ev){
- const files=[...(ev.target.files||[])];if(!files.length)return;
- const d=data();let pending=files.length,failed=0;
- files.forEach(f=>{if(!f.type.startsWith('image/')){pending--;failed++;return;}const reader=new FileReader();reader.onload=()=>{d.gallery.push(reader.result);pending--;if(pending===0){save(d);alert(failed?'Algunas selecciones no eran imágenes.':'Fotos agregadas.');}};reader.onerror=()=>{pending--;failed++;if(pending===0){save(d);alert('Fotos guardadas parcialmente.')}};reader.readAsDataURL(f);});
+async function addPhotos(ev){
+ const files=[...(ev.target.files||[])]; if(!files.length)return;
+ const status=document.getElementById('photoStatus'); status.textContent='Subiendo fotos...';
+ let ok=0, failed=[];
+ for(const f of files){
+   if(!f.type.startsWith('image/')){failed.push(f.name+' no es una imagen');continue;}
+   const ext=(f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
+   const path=`gallery/${crypto.randomUUID()}.${ext}`;
+   const {error}=await supabaseClient.storage.from('gallery').upload(path,f,{cacheControl:'3600',upsert:false,contentType:f.type});
+   if(error){failed.push(f.name+': '+error.message);continue;}
+   ok++;
+ }
  ev.target.value='';
+ await loadGalleryFromStorage();
+ status.textContent=failed.length?`Subidas: ${ok}. Errores: ${failed.join(' | ')}`:`${ok} foto(s) subidas correctamente.`;
 }
-function removePhoto(i){const d=data();d.gallery.splice(i,1);save(d)}
-function stats(key){const d=data(),a=d.bookings.filter(x=>x.kind==='Reserva'&&x.start.slice(0,7)===key);return {count:a.length,revenue:a.reduce((s,x)=>s+(+x.amount||0),0),nights:a.reduce((s,x)=>s+nights(x.start,x.end),0),items:a}}
+async function loadGalleryFromStorage(){
+ const {data,error}=await supabaseClient.storage.from('gallery').list('gallery',{limit:100,sortBy:{column:'created_at',order:'desc'}});
+ if(error){document.getElementById('photoStatus').textContent='No se pudo cargar la galería: '+error.message;return;}
+ const d=data();
+ d.gallery=(data||[]).filter(x=>x.name).map(x=>supabaseClient.storage.from('gallery').getPublicUrl('gallery/'+x.name).data.publicUrl);
+ save(d);
+}
+async function stats(key){const d=data(),a=d.bookings.filter(x=>x.kind==='Reserva'&&x.start.slice(0,7)===key);return {count:a.length,revenue:a.reduce((s,x)=>s+(+x.amount||0),0),nights:a.reduce((s,x)=>s+nights(x.start,x.end),0),items:a}}
 function render(){
  const d=data();Object.keys(d.prices).forEach(k=>document.getElementById(k).value=d.prices[k]);
  document.getElementById('siteName').value=d.content.name;document.getElementById('phone').value=d.content.phone;document.getElementById('desc').value=d.content.desc;
