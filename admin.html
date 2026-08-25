@@ -1,0 +1,88 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Administración | "onde" la yoly</title>
+<style>
+:root{--bg:#f3f0e9;--card:#fff;--ink:#263129;--muted:#687168;--accent:#7f573a;--line:#ddd5c9;--ok:#3f7a50;--bad:#a74b44;--gold:#c58b35}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,sans-serif}.wrap{max-width:1160px;margin:auto;padding:22px 18px}.login{min-height:100vh;display:grid;place-items:center;padding:20px}.box,.card{background:white;border:1px solid var(--line);border-radius:22px;padding:24px}.box{width:min(440px,100%)}.brand{font:700 28px Georgia,serif}.muted{color:var(--muted)}input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:11px;font:inherit;margin:6px 0 14px}textarea{min-height:90px}.btn{border:0;border-radius:11px;padding:11px 15px;background:var(--accent);color:white;font-weight:800;cursor:pointer}.secondary{background:#eee7dd;color:var(--ink)}.ok{background:#dceee1;color:#2d6940}.bad{background:#f2dcd9;color:#963d37}.tabs{display:flex;gap:8px;overflow:auto;padding:16px 0}.tab.active{background:var(--accent);color:white}.panel{display:none}.panel.active{display:block}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.stat{background:white;border:1px solid var(--line);border-radius:18px;padding:18px}.stat b{display:block;font-size:28px;margin-top:5px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--line)}.row:first-child{border-top:0}.badge{padding:5px 9px;border-radius:99px;font-size:12px;background:#eee}.pending{background:#f5e7c8;color:#805e1e}.approved{background:#dceee1;color:#2d6940}.rejected{background:#f2dcd9;color:#963d37}.chart{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end;height:190px}.barcol{display:flex;flex-direction:column;justify-content:end;align-items:center;height:100%;gap:5px}.barv{width:100%;max-width:42px;background:#b98155;border-radius:7px 7px 0 0}.small{font-size:12px}.notice{background:#fff7df;border:1px solid #ead9a7;border-radius:15px;padding:14px;margin:12px 0}.stars{color:var(--gold);letter-spacing:2px}@media(max-width:900px){.stats,.grid2{grid-template-columns:1fr 1fr}}@media(max-width:550px){.stats,.grid2{grid-template-columns:1fr}}
+</style></head><body>
+<div id="login" class="login"><div class="box"><div class="brand">"onde" la yoly</div><p class="muted">Panel privado de administración</p><label>Correo</label><input id="email" type="email" placeholder="tu correo"><label>Contraseña</label><input id="password" type="password"><button class="btn" onclick="login()">Ingresar</button><p id="error" style="color:#a74b44"></p><p class="small muted">Usa el correo y la contraseña de tu usuario de Supabase.</p></div></div>
+<div id="app" style="display:none"><div class="card" style="border-radius:0"><div class="wrap" style="padding:0;display:flex;justify-content:space-between;align-items:center"><div><div class="brand">"onde" la yoly</div><div class="muted">Panel privado</div></div><button class="btn secondary" onclick="logout()">Cerrar sesión</button></div></div><div class="wrap"><div id="notice"></div><div class="tabs"><button class="btn tab active" data-tab="stats">📊 Estadísticas</button><button class="btn tab" data-tab="reservas">📅 Reservas</button><button class="btn tab" data-tab="precios">💰 Precios</button><button class="btn tab" data-tab="resenas">⭐ Reseñas</button><button class="btn tab" data-tab="contenido">🏡 Contenido</button><button class="btn tab" data-tab="usuarios">👤 Administradores</button></div>
+<section id="stats" class="panel active"><div class="stats"><div class="stat">Arriendos este mes<b id="rentals">0</b></div><div class="stat">Recaudado<b id="revenue">$0</b></div><div class="stat">Noches arrendadas<b id="nights">0</b></div><div class="stat">Ocupación<b id="occ">0%</b></div></div><div class="card" style="margin-top:16px"><h2>Ingresos de los últimos 12 meses</h2><div id="chart" class="chart"></div></div><div class="grid2" style="margin-top:16px"><div class="card"><h2>Historial mensual</h2><div id="history"></div></div><div class="card"><h2>Detalle por mes</h2><input id="month" type="month"><div id="detail"></div></div></div></section>
+<section id="reservas" class="panel"><div class="grid2"><div class="card"><h2>Nueva reserva</h2><label>Nombre</label><input id="bname"><label>Entrada</label><input id="bstart" type="date"><label>Salida</label><input id="bend" type="date"><label>Personas</label><input id="bpeople" type="number" min="1" max="4" value="2"><label>Tinaja</label><select id="btype"><option value="no">Sin tinaja</option><option value="yes">Con tinaja</option></select><label>Valor cobrado</label><select id="amount" onchange="other()"><option value="45000">$45.000</option><option value="55000">$55.000</option><option value="70000">$70.000</option><option value="85000">$85.000</option><option value="other">Otro monto</option></select><input id="otherAmount" type="number" placeholder="Ingresa el monto" style="display:none"><button class="btn" onclick="addBooking()">Guardar reserva</button></div><div class="card"><h2>Bloquear fechas</h2><label>Desde</label><input id="bs" type="date"><label>Hasta</label><input id="be" type="date"><button class="btn bad" onclick="block()">Bloquear</button></div></div><div class="card" style="margin-top:16px"><h2>Historial</h2><div id="bookings"></div></div></section>
+<section id="precios" class="panel"><div class="card"><h2>Tarifas</h2><div class="grid2"><div><label>Lunes-jueves sin tinaja</label><input id="weekNo"><label>Viernes-domingo sin tinaja</label><input id="weekendNo"><label>Feriados sin tinaja</label><input id="holidayNo"></div><div><label>Lunes-jueves con tinaja</label><input id="weekYes"><label>Viernes-domingo con tinaja</label><input id="weekendYes"><label>Feriados con tinaja</label><input id="holidayYes"></div></div><button class="btn" onclick="savePrices()">Guardar</button></div></section>
+<section id="resenas" class="panel"><div class="card"><h2>Moderación de reseñas</h2><div id="reviewList"></div></div></section>
+<section id="contenido" class="panel"><div class="card"><h2>Contenido editable</h2><label>Nombre</label><input id="siteName" value='"onde" la yoly'><label>WhatsApp</label><input id="phone" value="+56 9 8796 7054"><label>Descripción</label><textarea id="desc"></textarea><button class="btn" onclick="saveContent()">Guardar</button></div><div class="card" style="margin-top:16px"><h2>Fotos de la cabaña</h2><p class="muted">Agrega fotos para que aparezcan en la página pública. Se guardan en este navegador en esta versión.</p>
+<input id="photos" type="file" accept="image/*" multiple onchange="addPhotos(event)">
+<div id="photoList"></div></div></section>
+<section id="usuarios" class="panel"><div class="card"><h2>Administradores</h2><p class="muted">Preparado para agregar administradores en la versión con autenticación real.</p><button class="btn secondary" onclick="alert('Esta función se conectará en la versión segura con base de datos.')">+ Agregar administrador</button></div></section>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL="https://qdfvhsfriuwrzuwcriae.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_a7rmVVP4_O_RWgNOP_LEWw_Mdy_NywU";
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+
+const DEFAULTS={prices:{weekNo:45000,weekYes:70000,weekendNo:55000,weekendYes:85000,holidayNo:55000,holidayYes:85000},bookings:[],reviews:[],gallery:[],content:{name:'"onde" la yoly',phone:'+56 9 8796 7054',desc:''}};
+function data(){try{const d=JSON.parse(localStorage.getItem('ondeLaYolyData')||'null');return Object.assign({},DEFAULTS,d||{},{
+ prices:Object.assign({},DEFAULTS.prices,d?.prices||{}),bookings:Array.isArray(d?.bookings)?d.bookings:[],reviews:Array.isArray(d?.reviews)?d.reviews:[],gallery:Array.isArray(d?.gallery)?d.gallery:[],content:Object.assign({},DEFAULTS.content,d?.content||{})
+ });}catch(e){return JSON.parse(JSON.stringify(DEFAULTS));}}
+function save(d){localStorage.setItem('ondeLaYolyData',JSON.stringify(d));render()}
+function money(n){return '$'+Number(n||0).toLocaleString('es-CL')}
+function nights(a,b){return Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000))}
+async function login(){
+ const em=document.getElementById('email').value.trim(),pw=document.getElementById('password').value;
+ const error=document.getElementById('error');
+ error.textContent='';
+ if(!em||!pw){error.textContent='Ingresa tu correo y contraseña.';return;}
+ const {data,error:authError}=await supabaseClient.auth.signInWithPassword({email:em,password:pw});
+ if(authError){error.textContent='Correo o contraseña incorrectos.';return;}
+ if(data.session) show();
+}
+function show(){loginEl.style.display='none';app.style.display='block';render();}
+async function logout(){await supabaseClient.auth.signOut();location.reload()}
+supabaseClient.auth.onAuthStateChange((_event,session)=>{if(session)show();});
+const loginEl=document.getElementById('login');
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active');render()});
+function other(){document.getElementById('otherAmount').style.display=document.getElementById('amount').value==='other'?'block':'none'}
+function addBooking(){
+ const d=data(),v=document.getElementById('amount').value==='other'?+document.getElementById('otherAmount').value:+document.getElementById('amount').value;
+ const b={id:Date.now(),kind:'Reserva',name:document.getElementById('bname').value.trim(),start:document.getElementById('bstart').value,end:document.getElementById('bend').value,people:+document.getElementById('bpeople').value,type:document.getElementById('btype').value,amount:v};
+ if(!b.name||!b.start||!b.end||!v||nights(b.start,b.end)<=0)return alert('Completa los datos y verifica las fechas.');
+ d.bookings.push(b);save(d);alert('Reserva guardada.');
+}
+function block(){
+ const d=data(),b={id:Date.now(),kind:'Bloqueo',name:'Bloqueo',start:document.getElementById('bs').value,end:document.getElementById('be').value,amount:0};
+ if(!b.start||!b.end||nights(b.start,b.end)<=0)return alert('Verifica las fechas.');
+ d.bookings.push(b);save(d);alert('Fechas bloqueadas.');
+}
+function remove(id){if(!confirm('¿Eliminar este registro?'))return;const d=data();d.bookings=d.bookings.filter(x=>x.id!==id);save(d)}
+function savePrices(){const d=data();Object.keys(d.prices).forEach(k=>d.prices[k]=Math.max(0,+document.getElementById(k).value||0));save(d);alert('Precios guardados.')}
+function mod(id,s){const d=data(),r=d.reviews.find(x=>x.id===id);if(r)r.status=s;save(d)}
+function saveContent(){const d=data();d.content={name:document.getElementById('siteName').value,phone:document.getElementById('phone').value,desc:document.getElementById('desc').value};save(d);alert('Contenido guardado.')}
+function addPhotos(ev){
+ const files=[...(ev.target.files||[])];if(!files.length)return;
+ const d=data();let pending=files.length,failed=0;
+ files.forEach(f=>{if(!f.type.startsWith('image/')){pending--;failed++;return;}const reader=new FileReader();reader.onload=()=>{d.gallery.push(reader.result);pending--;if(pending===0){save(d);alert(failed?'Algunas selecciones no eran imágenes.':'Fotos agregadas.');}};reader.onerror=()=>{pending--;failed++;if(pending===0){save(d);alert('Fotos guardadas parcialmente.')}};reader.readAsDataURL(f);});
+ ev.target.value='';
+}
+function removePhoto(i){const d=data();d.gallery.splice(i,1);save(d)}
+function stats(key){const d=data(),a=d.bookings.filter(x=>x.kind==='Reserva'&&x.start.slice(0,7)===key);return {count:a.length,revenue:a.reduce((s,x)=>s+(+x.amount||0),0),nights:a.reduce((s,x)=>s+nights(x.start,x.end),0),items:a}}
+function render(){
+ const d=data();Object.keys(d.prices).forEach(k=>document.getElementById(k).value=d.prices[k]);
+ document.getElementById('siteName').value=d.content.name;document.getElementById('phone').value=d.content.phone;document.getElementById('desc').value=d.content.desc;
+ const now=new Date(),key=now.toISOString().slice(0,7),s=stats(key),days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+ rentals.textContent=s.count;revenue.textContent=money(s.revenue);nights.textContent=s.nights;occ.textContent=Math.min(100,Math.round(s.nights/days*100))+'%';
+ const ks=[];for(let i=11;i>=0;i--){const x=new Date(now.getFullYear(),now.getMonth()-i,1);ks.push(x.toISOString().slice(0,7))}
+ const ss=ks.map(stats),max=Math.max(1,...ss.map(x=>x.revenue));
+ chart.innerHTML=ss.map((v,i)=>`<div class="barcol"><small>${money(v.revenue)}</small><div class="barv" style="height:${Math.max(2,v.revenue/max*140)}px"></div><small>${new Date(ks[i]+'-01T12:00:00').toLocaleDateString('es-CL',{month:'short'})}</small></div>`).join('');
+ history.innerHTML=ss.slice().reverse().map((v,i)=>`<div class="row"><span><b>${ks[ks.length-1-i]}</b><br>${v.count} arriendo(s) · ${v.nights} noche(s)</span><b>${money(v.revenue)}</b></div>`).join('');
+ if(!month.value)month.value=key;let md=stats(month.value);detail.innerHTML=md.items.length?md.items.map(x=>`<div class="row"><span><b>${x.name}</b><br>${x.start} → ${x.end} · ${money(x.amount)}</span></div>`).join(''):'<p class="muted">No hay arriendos.</p>';
+ month.onchange=()=>render();
+ bookings.innerHTML=d.bookings.length?d.bookings.slice().reverse().map(x=>`<div class="row"><span><b>${x.kind}: ${x.name}</b><br>${x.start} → ${x.end} · ${money(x.amount)} · ${x.people||''} persona(s)</span><button class="btn bad" onclick="remove(${x.id})">Eliminar</button></div>`).join(''):'<p class="muted">Sin registros.</p>';
+ reviewList.innerHTML=d.reviews.length?d.reviews.slice().reverse().map(r=>`<div class="row"><span><b>${esc(r.name)}</b> <span class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span><br>${esc(r.text)}<br><span class="badge ${r.status}">${r.status==='pending'?'Pendiente':r.status==='approved'?'Aprobada':'Rechazada'}</span></span>${r.status==='pending'?`<span><button class="btn ok" onclick="mod(${r.id},'approved')">Aprobar</button> <button class="btn bad" onclick="mod(${r.id},'rejected')">Rechazar</button></span>`:''}</div>`).join(''):'<p class="muted">Sin reseñas.</p>';
+ const p=d.reviews.filter(r=>r.status==='pending').length;
+ notice.innerHTML=p?`<div class="notice">🔔 Tienes <b>${p}</b> reseña(s) pendiente(s) de aprobación.</div>`:'';
+ const list=document.getElementById('photoList');
+ list.innerHTML=d.gallery.length?d.gallery.map((src,i)=>`<div class="row"><img src="${src}" alt="Foto ${i+1}" style="width:120px;height:80px;object-fit:cover;border-radius:12px"><button class="btn bad" onclick="removePhoto(${i})">Eliminar</button></div>`).join(''):'<p class="muted">Aún no hay fotos cargadas.</p>';
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+supabaseClient.auth.getSession().then(({data})=>{if(data.session)show();});
+</script></body></html>
