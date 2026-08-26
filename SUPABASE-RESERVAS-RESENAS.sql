@@ -29,3 +29,16 @@ create policy "Authenticated can manage resenas" on public.resenas for all to au
 
 -- Asegura que la tabla resenas tenga valores por defecto útiles para futuras filas.
 alter table public.resenas alter column estado set default 'pendiente';
+
+
+-- Orden manual de la galería
+create table if not exists public.galeria_orden (
+  path text primary key,
+  orden integer not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.galeria_orden enable row level security;
+drop policy if exists "Public can read gallery order" on public.galeria_orden;
+drop policy if exists "Authenticated can manage gallery order" on public.galeria_orden;
+create policy "Public can read gallery order" on public.galeria_orden for select to anon, authenticated using (true);
+create policy "Authenticated can manage gallery order" on public.galeria_orden for all to authenticated using (true) with check (true);
