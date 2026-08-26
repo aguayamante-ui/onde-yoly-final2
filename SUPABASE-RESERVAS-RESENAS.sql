@@ -42,3 +42,15 @@ drop policy if exists "Public can read gallery order" on public.galeria_orden;
 drop policy if exists "Authenticated can manage gallery order" on public.galeria_orden;
 create policy "Public can read gallery order" on public.galeria_orden for select to anon, authenticated using (true);
 create policy "Authenticated can manage gallery order" on public.galeria_orden for all to authenticated using (true) with check (true);
+
+-- Storage: permite que el panel autenticado pueda listar las fotos del bucket gallery.
+drop policy if exists "Authenticated can list gallery objects" on storage.objects;
+create policy "Authenticated can list gallery objects"
+on storage.objects for select to authenticated
+using (bucket_id = 'gallery');
+
+-- Storage: permite que el panel autenticado pueda eliminar fotos del bucket gallery.
+drop policy if exists "Authenticated can delete gallery objects" on storage.objects;
+create policy "Authenticated can delete gallery objects"
+on storage.objects for delete to authenticated
+using (bucket_id = 'gallery');
