@@ -18,87 +18,39 @@
 <script>
 const SUPABASE_URL="https://qdfvhsfriuwrzuwcriae.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_a7rmVVP4_O_RWgNOP_LEWw_Mdy_NywU";
-const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY); // Supabase Auth — no password stored
-
-const DEFAULTS={prices:{weekNo:45000,weekYes:70000,weekendNo:55000,weekendYes:85000,holidayNo:55000,holidayYes:85000},bookings:[],reviews:[],gallery:[],content:{name:'"onde" la yoly',phone:'+56 9 8796 7054',desc:''}};
-function data(){try{const d=JSON.parse(localStorage.getItem('ondeLaYolyData')||'null');return Object.assign({},DEFAULTS,d||{},{
- prices:Object.assign({},DEFAULTS.prices,d?.prices||{}),bookings:Array.isArray(d?.bookings)?d.bookings:[],reviews:Array.isArray(d?.reviews)?d.reviews:[],gallery:Array.isArray(d?.gallery)?d.gallery:[],content:Object.assign({},DEFAULTS.content,d?.content||{})
- });}catch(e){return JSON.parse(JSON.stringify(DEFAULTS));}}
-function save(d){localStorage.setItem('ondeLaYolyData',JSON.stringify(d));render()}
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const DEFAULTS={prices:{weekNo:45000,weekYes:70000,weekendNo:55000,weekendYes:85000,holidayNo:55000,holidayYes:85000},content:{name:'"onde" la yoly',phone:'+56 9 8796 7054',desc:''},gallery:[]};
+const loginEl=document.getElementById('login'), app=document.getElementById('app');
+let bookings=[], reviews=[], gallery=[];
 function money(n){return '$'+Number(n||0).toLocaleString('es-CL')}
 function nights(a,b){return Math.max(0,Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000))}
-async function login(){
- const em=document.getElementById('email').value.trim(),pw=document.getElementById('password').value;
- const error=document.getElementById('error');
- error.textContent='';
- if(!em||!pw){error.textContent='Ingresa tu correo y contraseña.';return;}
- const {data,error:authError}=await supabaseClient.auth.signInWithPassword({email:em,password:pw});
- if(authError){error.textContent='Correo o contraseña incorrectos.';return;}
- if(data.session) show();
-}
-async function show(){loginEl.style.display='none';app.style.display='block';await loadGalleryFromStorage();render();}
-async function logout(){await supabaseClient.auth.signOut();location.reload()}
-supabaseClient.auth.onAuthStateChange((_event,session)=>{if(session)show();});
-const loginEl=document.getElementById('login');
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active');render()});
-function other(){document.getElementById('otherAmount').style.display=document.getElementById('amount').value==='other'?'block':'none'}
-function addBooking(){
- const d=data(),v=document.getElementById('amount').value==='other'?+document.getElementById('otherAmount').value:+document.getElementById('amount').value;
- const b={id:Date.now(),kind:'Reserva',name:document.getElementById('bname').value.trim(),start:document.getElementById('bstart').value,end:document.getElementById('bend').value,people:+document.getElementById('bpeople').value,type:document.getElementById('btype').value,amount:v};
- if(!b.name||!b.start||!b.end||!v||nights(b.start,b.end)<=0)return alert('Completa los datos y verifica las fechas.');
- d.bookings.push(b);save(d);alert('Reserva guardada.');
-}
-function block(){
- const d=data(),b={id:Date.now(),kind:'Bloqueo',name:'Bloqueo',start:document.getElementById('bs').value,end:document.getElementById('be').value,amount:0};
- if(!b.start||!b.end||nights(b.start,b.end)<=0)return alert('Verifica las fechas.');
- d.bookings.push(b);save(d);alert('Fechas bloqueadas.');
-}
-function remove(id){if(!confirm('¿Eliminar este registro?'))return;const d=data();d.bookings=d.bookings.filter(x=>x.id!==id);save(d)}
-function savePrices(){const d=data();Object.keys(d.prices).forEach(k=>d.prices[k]=Math.max(0,+document.getElementById(k).value||0));save(d);alert('Precios guardados.')}
-function mod(id,s){const d=data(),r=d.reviews.find(x=>x.id===id);if(r)r.status=s;save(d)}
-function saveContent(){const d=data();d.content={name:document.getElementById('siteName').value,phone:document.getElementById('phone').value,desc:document.getElementById('desc').value};save(d);alert('Contenido guardado.')}
-async function addPhotos(ev){
- const files=[...(ev.target.files||[])]; if(!files.length)return;
- const status=document.getElementById('photoStatus'); status.textContent='Subiendo fotos...';
- let ok=0, failed=[];
- for(const f of files){
-   if(!f.type.startsWith('image/')){failed.push(f.name+' no es una imagen');continue;}
-   const ext=(f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
-   const path=`gallery/${crypto.randomUUID()}.${ext}`;
-   const {error}=await supabaseClient.storage.from('gallery').upload(path,f,{cacheControl:'3600',upsert:false,contentType:f.type});
-   if(error){failed.push(f.name+': '+error.message);continue;}
-   ok++;
- }
- ev.target.value='';
- await loadGalleryFromStorage();
- status.textContent=failed.length?`Subidas: ${ok}. Errores: ${failed.join(' | ')}`:`${ok} foto(s) subidas correctamente.`;
-}
-async function loadGalleryFromStorage(){
- const {data,error}=await supabaseClient.storage.from('gallery').list('gallery',{limit:100,sortBy:{column:'created_at',order:'desc'}});
- if(error){document.getElementById('photoStatus').textContent='No se pudo cargar la galería: '+error.message;return;}
- const d=data();
- d.gallery=(data||[]).filter(x=>x.name).map(x=>supabaseClient.storage.from('gallery').getPublicUrl('gallery/'+x.name).data.publicUrl);
- save(d);
-}
-async function stats(key){const d=data(),a=d.bookings.filter(x=>x.kind==='Reserva'&&x.start.slice(0,7)===key);return {count:a.length,revenue:a.reduce((s,x)=>s+(+x.amount||0),0),nights:a.reduce((s,x)=>s+nights(x.start,x.end),0),items:a}}
-function render(){
- const d=data();Object.keys(d.prices).forEach(k=>document.getElementById(k).value=d.prices[k]);
- document.getElementById('siteName').value=d.content.name;document.getElementById('phone').value=d.content.phone;document.getElementById('desc').value=d.content.desc;
- const now=new Date(),key=now.toISOString().slice(0,7),s=stats(key),days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
- rentals.textContent=s.count;revenue.textContent=money(s.revenue);nights.textContent=s.nights;occ.textContent=Math.min(100,Math.round(s.nights/days*100))+'%';
- const ks=[];for(let i=11;i>=0;i--){const x=new Date(now.getFullYear(),now.getMonth()-i,1);ks.push(x.toISOString().slice(0,7))}
- const ss=ks.map(stats),max=Math.max(1,...ss.map(x=>x.revenue));
- chart.innerHTML=ss.map((v,i)=>`<div class="barcol"><small>${money(v.revenue)}</small><div class="barv" style="height:${Math.max(2,v.revenue/max*140)}px"></div><small>${new Date(ks[i]+'-01T12:00:00').toLocaleDateString('es-CL',{month:'short'})}</small></div>`).join('');
- history.innerHTML=ss.slice().reverse().map((v,i)=>`<div class="row"><span><b>${ks[ks.length-1-i]}</b><br>${v.count} arriendo(s) · ${v.nights} noche(s)</span><b>${money(v.revenue)}</b></div>`).join('');
- if(!month.value)month.value=key;let md=stats(month.value);detail.innerHTML=md.items.length?md.items.map(x=>`<div class="row"><span><b>${x.name}</b><br>${x.start} → ${x.end} · ${money(x.amount)}</span></div>`).join(''):'<p class="muted">No hay arriendos.</p>';
- month.onchange=()=>render();
- bookings.innerHTML=d.bookings.length?d.bookings.slice().reverse().map(x=>`<div class="row"><span><b>${x.kind}: ${x.name}</b><br>${x.start} → ${x.end} · ${money(x.amount)} · ${x.people||''} persona(s)</span><button class="btn bad" onclick="remove(${x.id})">Eliminar</button></div>`).join(''):'<p class="muted">Sin registros.</p>';
- reviewList.innerHTML=d.reviews.length?d.reviews.slice().reverse().map(r=>`<div class="row"><span><b>${esc(r.name)}</b> <span class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span><br>${esc(r.text)}<br><span class="badge ${r.status}">${r.status==='pending'?'Pendiente':r.status==='approved'?'Aprobada':'Rechazada'}</span></span>${r.status==='pending'?`<span><button class="btn ok" onclick="mod(${r.id},'approved')">Aprobar</button> <button class="btn bad" onclick="mod(${r.id},'rejected')">Rechazar</button></span>`:''}</div>`).join(''):'<p class="muted">Sin reseñas.</p>';
- const p=d.reviews.filter(r=>r.status==='pending').length;
- notice.innerHTML=p?`<div class="notice">🔔 Tienes <b>${p}</b> reseña(s) pendiente(s) de aprobación.</div>`:'';
- const list=document.getElementById('photoList');
- list.innerHTML=d.gallery.length?d.gallery.map((src,i)=>`<div class="row"><img src="${src}" alt="Foto ${i+1}" style="width:120px;height:80px;object-fit:cover;border-radius:12px"><button class="btn bad" onclick="removePhoto(${i})">Eliminar</button></div>`).join(''):'<p class="muted">Aún no hay fotos cargadas.</p>';
-}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
-supabaseClient.auth.getSession().then(({data})=>{if(data.session)show();});
-</script></body></html>
+function localPrefs(){try{const d=JSON.parse(localStorage.getItem('ondeLaYolyData')||'null')||{};return {prices:{...DEFAULTS.prices,...(d.prices||{})},content:{...DEFAULTS.content,...(d.content||{})}}}catch{return JSON.parse(JSON.stringify(DEFAULTS))}}
+function saveLocalPrefs(p){const old=localPrefs();localStorage.setItem('ondeLaYolyData',JSON.stringify({...old,...p}))}
+async function login(){const em=document.getElementById('email').value.trim(),pw=document.getElementById('password').value,error=document.getElementById('error');error.textContent='';if(!em||!pw){error.textContent='Ingresa tu correo y contraseña.';return}const {data,error:authError}=await supabaseClient.auth.signInWithPassword({email:em,password:pw});if(authError){error.textContent='Correo o contraseña incorrectos.';return}if(data.session)await show()}
+async function logout(){await supabaseClient.auth.signOut();location.reload()}
+async function show(){loginEl.style.display='none';app.style.display='block';await refreshAll();}
+supabaseClient.auth.onAuthStateChange((_event,session)=>{if(session){setTimeout(()=>show(),0)}});
+document.querySelectorAll('.tab').forEach(b=>b.onclick=async()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active');await refreshAll()});
+function other(){document.getElementById('otherAmount').style.display=document.getElementById('amount').value==='other'?'block':'none'}
+async function fetchBookings(){const {data,error}=await supabaseClient.from('reservas').select('*').order('created_at',{ascending:false});if(error){throw new Error('Reservas: '+error.message)}bookings=data||[];return bookings}
+async function addBooking(){const nombre=document.getElementById('bname').value.trim(),fecha_entrada=document.getElementById('bstart').value,fecha_salida=document.getElementById('bend').value,personas=+document.getElementById('bpeople').value,tinaja=document.getElementById('btype').value,monto=document.getElementById('amount').value==='other'?+document.getElementById('otherAmount').value:+document.getElementById('amount').value;if(!nombre||!fecha_entrada||!fecha_salida||!monto||nights(fecha_entrada,fecha_salida)<=0)return alert('Completa los datos y verifica las fechas.');const {data:existing,error:checkError}=await supabaseClient.from('reservas_publicas').select('fecha_entrada,fecha_salida,estado').neq('estado','cancelada');if(checkError)return alert('No se pudo comprobar disponibilidad: '+checkError.message);const conflict=(existing||[]).some(x=>nights(x.fecha_entrada,x.fecha_salida)>0&&fecha_entrada<x.fecha_salida&&fecha_salida>x.fecha_entrada);if(conflict)return alert('Las fechas seleccionadas ya están ocupadas.');const {error}=await supabaseClient.from('reservas').insert({nombre,fecha_entrada,fecha_salida,personas,tinaja,monto,estado:'confirmada'});if(error)return alert('No se pudo guardar la reserva: '+error.message);document.getElementById('bname').value='';document.getElementById('bstart').value='';document.getElementById('bend').value='';await refreshAll();alert('Reserva guardada correctamente.')}
+async function block(){const fecha_entrada=document.getElementById('bs').value,fecha_salida=document.getElementById('be').value;if(!fecha_entrada||!fecha_salida||nights(fecha_entrada,fecha_salida)<=0)return alert('Verifica las fechas.');const {error}=await supabaseClient.from('reservas').insert({nombre:'Bloqueo',fecha_entrada,fecha_salida,personas:0,tinaja:'no',monto:0,estado:'bloqueada'});if(error)return alert('No se pudieron bloquear las fechas: '+error.message);await refreshAll();alert('Fechas bloqueadas correctamente.')}
+async function remove(id){if(!confirm('¿Eliminar este registro?'))return;const {error}=await supabaseClient.from('reservas').delete().eq('id',id);if(error)return alert('No se pudo eliminar: '+error.message);await refreshAll()}
+function savePrices(){const p=localPrefs().prices;Object.keys(p).forEach(k=>p[k]=Math.max(0,+document.getElementById(k).value||0));saveLocalPrefs({prices:p});render()}
+async function fetchReviews(){const {data,error}=await supabaseClient.from('resenas').select('*').order('created_at',{ascending:false});if(error)throw new Error('Reseñas: '+error.message);reviews=data||[];return reviews}
+async function mod(id,estado){const {error}=await supabaseClient.from('resenas').update({estado}).eq('id',id);if(error)return alert('No se pudo actualizar la reseña: '+error.message);await refreshAll()}
+function saveContent(){const content={name:document.getElementById('siteName').value,phone:document.getElementById('phone').value,desc:document.getElementById('desc').value};saveLocalPrefs({content});alert('Contenido guardado.');render()}
+async function addPhotos(ev){const files=[...(ev.target.files||[])];if(!files.length)return;const status=document.getElementById('photoStatus');status.textContent='Subiendo fotos...';let ok=0,failed=[];for(const f of files){if(!f.type.startsWith('image/')){failed.push(f.name+' no es una imagen');continue}const ext=(f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`gallery/${crypto.randomUUID()}.${ext}`;const {error}=await supabaseClient.storage.from('gallery').upload(path,f,{cacheControl:'3600',upsert:false,contentType:f.type});if(error)failed.push(f.name+': '+error.message);else ok++}ev.target.value='';await loadGalleryFromStorage();status.textContent=failed.length?`Subidas: ${ok}. Errores: ${failed.join(' | ')}`:`${ok} foto(s) subidas correctamente.`}
+async function loadGalleryFromStorage(){const {data,error}=await supabaseClient.storage.from('gallery').list('gallery',{limit:100,sortBy:{column:'created_at',order:'desc'}});if(error){document.getElementById('photoStatus').textContent='No se pudo cargar la galería: '+error.message;return}gallery=(data||[]).filter(x=>x.name).map(x=>supabaseClient.storage.from('gallery').getPublicUrl('gallery/'+x.name).data.publicUrl);renderPhotos()}
+async function removePhoto(index){const {data,error}=await supabaseClient.storage.from('gallery').list('gallery',{limit:100,sortBy:{column:'created_at',order:'desc'}});if(error)return alert(error.message);const file=(data||[]).filter(x=>x.name)[index];if(!file)return; if(!confirm('¿Eliminar esta foto?'))return;const {error:delError}=await supabaseClient.storage.from('gallery').remove(['gallery/'+file.name]);if(delError)return alert('No se pudo eliminar: '+delError.message);await loadGalleryFromStorage()}
+function renderPhotos(){const list=document.getElementById('photoList');list.innerHTML=gallery.length?gallery.map((src,i)=>`<div class="row"><img src="${src}" alt="Foto ${i+1}" style="width:120px;height:80px;object-fit:cover;border-radius:12px"><button class="btn bad" onclick="removePhoto(${i})">Eliminar</button></div>`).join(''):'<p class="muted">Aún no hay fotos cargadas.</p>'}
+function monthKey(date){return String(date).slice(0,7)}
+function monthStats(key){const a=bookings.filter(x=>x.estado!=='cancelada'&&x.estado!=='bloqueada'&&monthKey(x.fecha_entrada)===key);return {count:a.length,revenue:a.reduce((s,x)=>s+(+x.monto||0),0),nights:a.reduce((s,x)=>s+nights(x.fecha_entrada,x.fecha_salida),0),items:a}}
+function render(){const prefs=localPrefs();Object.keys(prefs.prices).forEach(k=>{const el=document.getElementById(k);if(el)el.value=prefs.prices[k]});document.getElementById('siteName').value=prefs.content.name;document.getElementById('phone').value=prefs.content.phone;document.getElementById('desc').value=prefs.content.desc;const now=new Date(),key=monthKey(now),s=monthStats(key),days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();document.getElementById('rentals').textContent=s.count;document.getElementById('revenue').textContent=money(s.revenue);document.getElementById('nights').textContent=s.nights;document.getElementById('occ').textContent=Math.min(100,Math.round(s.nights/days*100))+'%';const ks=[];for(let i=11;i>=0;i--){const x=new Date(now.getFullYear(),now.getMonth()-i,1);ks.push(monthKey(x))}const ss=ks.map(monthStats),max=Math.max(1,...ss.map(x=>x.revenue));document.getElementById('chart').innerHTML=ss.map((v,i)=>`<div class="barcol"><small>${money(v.revenue)}</small><div class="barv" style="height:${Math.max(2,v.revenue/max*140)}px"></div><small>${new Date(ks[i]+'-01T12:00:00').toLocaleDateString('es-CL',{month:'short'})}</small></div>`).join('');document.getElementById('history').innerHTML=ss.slice().reverse().map((v,i)=>`<div class="row"><span><b>${ks[ks.length-1-i]}</b><br>${v.count} arriendo(s) · ${v.nights} noche(s)</span><b>${money(v.revenue)}</b></div>`).join('');const month=document.getElementById('month');if(!month.value)month.value=key;const md=monthStats(month.value);document.getElementById('detail').innerHTML=md.items.length?md.items.map(x=>`<div class="row"><span><b>${esc(x.nombre)}</b><br>${x.fecha_entrada} → ${x.fecha_salida} · ${money(x.monto)}</span></div>`).join(''):'<p class="muted">No hay arriendos.</p>';month.onchange=render;document.getElementById('bookings').innerHTML=bookings.length?bookings.map(x=>`<div class="row"><span><b>${x.estado==='bloqueada'?'Bloqueo':'Reserva'}: ${esc(x.nombre)}</b><br>${x.fecha_entrada} → ${x.fecha_salida} · ${money(x.monto)} · ${x.personas||0} persona(s) · ${esc(x.estado)}</span><button class="btn bad" onclick="remove(${x.id})">Eliminar</button></div>`).join(''):'<p class="muted">Sin registros.</p>';document.getElementById('reviewList').innerHTML=reviews.length?reviews.map(r=>`<div class="row"><span><b>${esc(r.nombre)}</b> <span class="stars">${'★'.repeat(r.estrellas||0)}${'☆'.repeat(5-(r.estrellas||0))}</span><br>${esc(r.comentario)}<br><span class="badge ${r.estado==='pendiente'?'pending':r.estado==='aprobada'?'approved':'rejected'}">${r.estado||'pendiente'}</span></span>${r.estado==='pendiente'?`<span><button class="btn ok" onclick="mod(${r.id},'aprobada')">Aprobar</button> <button class="btn bad" onclick="mod(${r.id},'rechazada')">Rechazar</button></span>`:''}</div>`).join(''):'<p class="muted">Sin reseñas.</p>';const p=reviews.filter(r=>r.estado==='pendiente').length;document.getElementById('notice').innerHTML=p?`<div class="notice">🔔 Tienes <b>${p}</b> reseña(s) pendiente(s) de aprobación.</div>`:'';renderPhotos()}
+async function refreshAll(){try{await Promise.all([fetchBookings(),fetchReviews(),loadGalleryFromStorage()]);render()}catch(e){document.getElementById('notice').innerHTML=`<div class="notice">⚠️ ${esc(e.message)}</div>`;render()}}
+supabaseClient.auth.getSession().then(({data})=>{if(data.session)show()});
+setInterval(()=>{if(app.style.display!=='none')refreshAll()},10000);
+supabaseClient.channel('admin-sync').on('postgres_changes',{event:'*',schema:'public',table:'reservas'},()=>refreshAll()).on('postgres_changes',{event:'*',schema:'public',table:'resenas'},()=>refreshAll()).subscribe();
+</script>
+</body></html>
